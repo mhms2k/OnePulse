@@ -43,6 +43,10 @@ jobs:
           fi
           mkdir -p Payload
           cp -R build/device/Build/Products/Release-iphoneos/OpenPulse.app Payload/
+          # Ad-hoc sign so the binary has an LC_CODE_SIGNATURE slot; Sideloadly re-signs it with the
+          # owner's Apple ID. Without this the iPhone rejects the install ("No code signature found").
+          codesign --force --sign - --timestamp=none Payload/OpenPulse.app
+          codesign -dv Payload/OpenPulse.app
           zip -qry OpenPulse-unsigned.ipa Payload
           echo "IPA size: $(du -h OpenPulse-unsigned.ipa | cut -f1)"
 
