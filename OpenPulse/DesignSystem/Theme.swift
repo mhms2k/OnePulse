@@ -57,6 +57,16 @@ enum Theme {
         }
     }
 
+    /// Stress monitor colours: 0–1 low, 1–2 medium, 2–3 high.
+    static func stress(_ level: Double) -> Color {
+        level < 1 ? recoveryGreen : (level < 2 ? recoveryYellow : recoveryRed)
+    }
+
+    /// Pace of aging: below 1 is slower than average.
+    static func pace(_ value: Double) -> Color {
+        value < 1 ? recoveryGreen : (value < 1.5 ? recoveryYellow : recoveryRed)
+    }
+
     static let radius: CGFloat = 22
 }
 

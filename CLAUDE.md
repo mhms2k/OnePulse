@@ -28,6 +28,6 @@ run is green. Each macOS run costs CI minutes, so batch all fixes you can see in
   `DeviceKind` case and wire it in `BluetoothManager`.
 
 ## Layout
-`OpenPulse/` app sources (Xcode 16 synchronized folder — new files are picked up automatically, no pbxproj edits
+`OpenPulse/` app sources (v1.1 lifestyle features — Healthspan, Stress, Breathwork, Journal, Strength, Weekly plan, Cycle — live in `Features/Health/` with pure logic in `Core/Engine/`) (Xcode 16 synchronized folder — new files are picked up automatically, no pbxproj edits
 needed) · `OpenPulseTests/` unit tests · `Config/Info.plist` (Bluetooth background mode) · `tools/make_icon.py`
 regenerates the app icon.

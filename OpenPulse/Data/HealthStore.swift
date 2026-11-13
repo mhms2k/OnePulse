@@ -20,6 +20,10 @@ final class HealthStore: ObservableObject {
 
     @Published private(set) var scores: [DayScore] = []
     @Published private(set) var lastUpdated: Date?
+    /// Journal answers keyed by start of day.
+    @Published private(set) var journal: [Date: JournalDay] = [:]
+    /// Logged strength sessions, newest first.
+    @Published private(set) var strengthWorkouts: [StrengthWorkout] = []
     @Published var profile: UserProfile {
         didSet {
             guard profile != oldValue else { return }
@@ -46,6 +50,8 @@ final class HealthStore: ObservableObject {
         }
         profile = UserProfile.load()
         loadScores()
+        loadJournal()
+        loadStrength()
         if scores.isEmpty || Calendar.current.isDateInToday(scores.last?.day ?? .distantPast) == false {
             recompute(from: scores.last?.day ?? Date())
         }
@@ -57,6 +63,13 @@ final class HealthStore: ObservableObject {
     }
 
     func loadDemoData() {
+        for (day, answers) in DemoData.journal() where journal[day] == nil {
+            context.insert(JournalEntry(day: day, answers: answers, notes: "", source: DemoData.source))
+        }
+        for w in DemoData.strengthWorkouts() { context.insert(StrengthEntry(w)) }
+        save()
+        loadJournal()
+        loadStrength()
         ingest(DemoData.generate())
     }
 
@@ -138,12 +151,79 @@ final class HealthStore: ObservableObject {
                 try context.delete(model: WorkoutEntry.self)
             }
             try context.delete(model: DayScoreEntry.self)
+            if let source {
+                try context.delete(model: JournalEntry.self, where: #Predicate<JournalEntry> { $0.source == source })
+                try context.delete(model: StrengthEntry.self, where: #Predicate<StrengthEntry> { $0.source == source })
+            } else {
+                try context.delete(model: JournalEntry.self)
+                try context.delete(model: StrengthEntry.self)
+            }
             save()
         } catch {
             print("OpenPulse: delete failed \(error)")
         }
+        loadJournal()
+        loadStrength()
         scores = []
         recomputeAll()
+    }
+
+    // MARK: Journal, strength, stress, healthspan
+
+    var journalAnswers: [Date: [String: Bool]] { journal.mapValues(\.answers) }
+
+    func journalDay(_ day: Date) -> JournalDay? { journal[Calendar.current.startOfDay(for: day)] }
+
+    func saveJournal(day: Date, answers: [String: Bool], notes: String) {
+        let d = Calendar.current.startOfDay(for: day)
+        context.insert(JournalEntry(day: d, answers: answers, notes: notes, source: "User"))
+        save()
+        journal[d] = JournalDay(answers: answers, notes: notes, source: "User")
+    }
+
+    func saveStrength(_ workout: StrengthWorkout) {
+        var w = workout
+        if w.source == DemoData.source { w.source = "User" }
+        context.insert(StrengthEntry(w))
+        save()
+        loadStrength()
+    }
+
+    func deleteStrength(_ workout: StrengthWorkout) {
+        let id = workout.id
+        do {
+            try context.delete(model: StrengthEntry.self, where: #Predicate<StrengthEntry> { $0.uuid == id })
+        } catch {
+            print("OpenPulse: delete failed \(error)")
+        }
+        save()
+        loadStrength()
+    }
+
+    var behaviorInsights: [BehaviorInsight] { BehaviorAnalyzer.insights(journal: journalAnswers, scores: scores) }
+
+    var healthspan: HealthspanResult? {
+        Healthspan.compute(scores: scores, strength: strengthWorkouts, profile: profile)
+    }
+
+    func stressTimeline(for day: Date) -> [StressSample] {
+        let d = detail(for: day)
+        let s = score(for: day)
+        return StressMonitor.timeline(heartRate: d.heartRate, watchStress: d.stress,
+                                      restingHR: s?.restingHR ?? s?.rhrBaseline?.mean,
+                                      workouts: s?.workouts ?? [], sleep: d.sleep)
+    }
+
+    private func loadJournal() {
+        let all = (try? context.fetch(FetchDescriptor<JournalEntry>())) ?? []
+        var map: [Date: JournalDay] = [:]
+        for e in all { map[e.day] = JournalDay(answers: e.answers, notes: e.notes, source: e.source) }
+        journal = map
+    }
+
+    private func loadStrength() {
+        let d = FetchDescriptor<StrengthEntry>(sortBy: [SortDescriptor(\.start, order: .reverse)])
+        strengthWorkouts = ((try? context.fetch(d)) ?? []).compactMap(\.workout)
     }
 
     // MARK: Scoring pipeline

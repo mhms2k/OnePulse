@@ -45,7 +45,7 @@ struct RootView: View {
     }
 }
 
-enum AppTab: Hashable { case today, trends, devices, profile }
+enum AppTab: Hashable { case today, trends, health, devices, profile }
 
 final class Navigator: ObservableObject {
     @Published var tab: AppTab = .today
@@ -62,6 +62,9 @@ struct MainTabView: View {
             TrendsView()
                 .tabItem { Label("Trends", systemImage: "chart.xyaxis.line") }
                 .tag(AppTab.trends)
+            HealthView()
+                .tabItem { Label("Health", systemImage: "heart.text.square") }
+                .tag(AppTab.health)
             DevicesView()
                 .tabItem { Label("Devices", systemImage: "applewatch.radiowaves.left.and.right") }
                 .tag(AppTab.devices)

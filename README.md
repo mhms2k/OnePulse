@@ -10,6 +10,20 @@ stores everything **on the iPhone**, and turns raw data into three daily scores 
 | **Strain** | 0–21 (logarithmic) | Banister TRIMP on heart-rate reserve, with a time-in-zone breakdown |
 | **Sleep** | performance % | Hours asleep ÷ sleep need (baseline + strain + debt − naps), plus stages, efficiency, consistency |
 
+### Also included (v1.1)
+
+| Feature | What it does |
+|---|---|
+| **Healthspan** | Body age and pace of aging from 30 days of VO₂ max (estimated), resting HR, sleep hours & consistency, zone 1–3 / 4–5 minutes, strength time and steps |
+| **Stress monitor** | 0–3 stress through the day (watch stress index, or heart rate vs. resting HR), workouts excluded |
+| **Breathwork** | Guided Relax / Focus / Alert breathing sessions with haptics |
+| **Journal & behavior insights** | Daily yes/no habits (20 to choose from); after 5 yes + 5 no answers, shows the Recovery difference; 5-week habit calendar |
+| **Strength trainer** | Log sets, reps and weight; volume, personal records (est. 1RM) and weekly strength time |
+| **Weekly plan & report** | Goals for workouts, strength minutes, sleep and steps; last 7 days vs. the 7 before |
+| **Cycle tracking** | Log period starts; shows cycle day, phase and phase-specific guidance |
+
+Not included: the AI assistant, respiratory rate and skin temperature (the CMF watch doesn't expose them), haptic alarms, ECG, teams.
+
 ## Supported devices
 
 | Device | How | Data |

@@ -38,8 +38,9 @@ enum DemoData {
                 batch.sleep.append(SleepRecord(start: bed, end: wake, segments: segments, source: source))
             }
 
-            let rhr = 52 + fatigue * 4 + r(-1.5...1.5)
-            let hrvMean = 62 - fatigue * 9 + r(-5...5)
+            let alcohol = drankAlcohol(nightBefore: day, offset: offset)
+            let rhr = 52 + fatigue * 4 + r(-1.5...1.5) + (alcohol ? 4 : 0)
+            let hrvMean = 62 - fatigue * 9 + r(-5...5) - (alcohol ? 14 : 0)
             var t = bed
             while t < Swift.min(wake, now) {
                 let progress = t.timeIntervalSince(bed) / wake.timeIntervalSince(bed)
@@ -47,7 +48,7 @@ enum DemoData {
                 batch.heartRate.append(HRPoint(date: t, bpm: Int(rhr + 3 - dip + r(-2...3))))
                 if Int(t.timeIntervalSince(bed)) % 1800 < 300 {
                     batch.spo2.append(ValuePoint(date: t, value: (96.5 + r(-1.2...1.5)).rounded()))
-                    batch.stress.append(ValuePoint(date: t, value: (24 + fatigue * 8 + r(-6...6)).rounded()))
+                    batch.stress.append(ValuePoint(date: t, value: (24 + fatigue * 8 + (alcohol ? 12 : 0) + r(-6...6)).rounded()))
                     batch.hrv.append(ValuePoint(date: t, value: Swift.max(18, hrvMean + r(-12...12))))
                 }
                 t = t.addingTimeInterval(300)
@@ -92,6 +93,62 @@ enum DemoData {
             fatigue = Swift.max(0, Swift.min(2.5, fatigue * 0.55 + dayStrainProxy / 40 + (7.5 - sleepHours) * 0.25))
         }
         return batch
+    }
+
+    /// Demo habit: drinks on most Friday/Saturday nights and the odd weekday.
+    static func drankAlcohol(nightBefore day: Date, offset: Int) -> Bool {
+        let weekday = Calendar.current.component(.weekday, from: day)
+        if weekday == 7 || weekday == 1 { return offset % 3 != 0 }
+        return offset % 9 == 4
+    }
+
+    /// Journal answers matching the generated data (alcohol nights really do lower recovery).
+    static func journal(days: Int = 42, now: Date = Date()) -> [Date: [String: Bool]] {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: now)
+        var out: [Date: [String: Bool]] = [:]
+        for offset in 0..<days {
+            guard let day = cal.date(byAdding: .day, value: -offset, to: today) else { continue }
+            if offset % 8 == 5 { continue } // forgot to journal that day
+            let weekday = cal.component(.weekday, from: day)
+            let alcohol = drankAlcohol(nightBefore: day, offset: offset)
+            out[day] = [
+                "alcohol": alcohol,
+                "lateCaffeine": offset % 4 == 1,
+                "lateMeal": alcohol || offset % 6 == 0,
+                "hydrated": !alcohol || offset % 2 == 0,
+                "screens": offset % 3 == 0,
+                "stressed": (2...6).contains(weekday) && offset % 5 == 0,
+            ]
+        }
+        return out
+    }
+
+    /// Two strength sessions a week with steady progression.
+    static func strengthWorkouts(days: Int = 42, now: Date = Date()) -> [StrengthWorkout] {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: now)
+        var out: [StrengthWorkout] = []
+        for offset in stride(from: days - 1, through: 0, by: -1) {
+            guard let day = cal.date(byAdding: .day, value: -offset, to: today) else { continue }
+            let weekday = cal.component(.weekday, from: day)
+            guard weekday == 2 || weekday == 5 else { continue } // Monday and Thursday mornings
+            let start = day.addingTimeInterval(7.5 * 3600)
+            let end = start.addingTimeInterval(55 * 60)
+            guard end <= now else { continue }
+            let progress = Double(days - offset) / 7 * 2.5
+            let lifts: [(String, Double, Int)] = weekday == 2
+                ? [("Back Squat", 80, 5), ("Bench Press", 60, 5), ("Barbell Row", 55, 8)]
+                : [("Deadlift", 100, 5), ("Overhead Press", 40, 6), ("Pull-up", 0, 8)]
+            var sets: [StrengthSet] = []
+            for (name, base, reps) in lifts {
+                let weight = base == 0 ? 0 : ((base + progress) / 2.5).rounded() * 2.5
+                for _ in 0..<3 { sets.append(StrengthSet(exercise: name, reps: reps, weightKg: weight)) }
+            }
+            out.append(StrengthWorkout(name: weekday == 2 ? "Lower + push" : "Pull + press",
+                                       start: start, end: end, sets: sets, source: source))
+        }
+        return out
     }
 
     /// Realistic ~90-minute cycles: deep sleep early in the night, REM later.

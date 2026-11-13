@@ -18,6 +18,13 @@ struct UserProfile: Codable, Equatable {
     /// Typical wake-up time, minutes after midnight (used for bedtime advice until enough nights are recorded).
     var wakeMinutes: Int = 7 * 60
     var hasOnboarded: Bool = false
+    // Added in v1.1 — optional so profiles saved by older versions still decode.
+    var trackedBehaviors: [String]?
+    var plan: WeeklyPlan?
+    var periodStarts: [Date]?
+
+    var tracked: [String] { trackedBehaviors ?? Behavior.defaultTracked }
+    var weeklyPlan: WeeklyPlan { plan ?? WeeklyPlan() }
 
     /// Tanaka formula: 208 − 0.7 × age.
     var estimatedMaxHeartRate: Int { Int((208 - 0.7 * Double(age)).rounded()) }

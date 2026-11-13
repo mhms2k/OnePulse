@@ -104,6 +104,12 @@ struct MethodologyView: View {
                     "Cardiovascular load from Banister's TRIMP: every minute above 25% of your heart-rate reserve adds load that grows exponentially with intensity. The total is mapped onto a logarithmic 0–21 scale, so the top of the scale takes disproportionately more effort. Recovery sets today's target: green 14–18, yellow 10–14, red under 10.")
             section("Sleep · performance %", color: Theme.sleep,
                     "Sleep need = your baseline + up to 50 min after a high-strain day + a share of the last three nights' shortfall vs. baseline (debt) − naps. Performance is hours asleep divided by that need. Efficiency is time asleep vs time in bed; consistency compares your last four bed and wake times.")
+            section("Healthspan · body age", color: Theme.recoveryGreen,
+                    "Starts from your calendar age and adds or removes years for eight markers over the last 30 days (at least 14 days of data): estimated VO₂ max (15.3 × max HR ÷ resting HR), resting heart rate, hours of sleep, sleep consistency, minutes in zones 1–3 and 4–5, strength training time and daily steps. Pace of aging = 1 + (total years ÷ 6), shown from −1× to 3×. A motivational estimate, not a medical test.")
+            section("Stress · 0–3", color: Theme.recoveryYellow,
+                    "Uses your watch's own stress readings when available; otherwise your heart rate in 15-minute blocks compared with your resting heart rate (beyond the ~15% rise that is normal when awake). Workouts and the 15 minutes after them are excluded.")
+            section("Journal · behavior insights", color: Theme.strain,
+                    "Each morning, answer yes/no about the day before. Once a habit has at least 5 yes and 5 no answers on days with a Recovery score in the last 90 days, OpenPulse shows the average Recovery after each. These are associations, not proof of cause.")
             section("Your data", color: Theme.neutral,
                     "OpenPulse connects to devices directly over Bluetooth and stores everything on this iPhone. Nothing is uploaded. Scores are wellness estimates, not medical advice.\n\nCMF watch protocol knowledge comes from the open-source Gadgetbridge community's reverse-engineering work.")
         }

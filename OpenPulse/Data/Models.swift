@@ -114,9 +114,46 @@ final class DayScoreEntry {
     var score: DayScore? { try? JSONDecoder().decode(DayScore.self, from: payload) }
 }
 
+/// One morning's journal (answers are about the day before).
+@Model
+final class JournalEntry {
+    @Attribute(.unique) var day: Date
+    var answersData: Data
+    var notes: String
+    var source: String
+
+    init(day: Date, answers: [String: Bool], notes: String, source: String) {
+        self.day = day
+        self.answersData = (try? JSONEncoder().encode(answers)) ?? Data()
+        self.notes = notes
+        self.source = source
+    }
+
+    var answers: [String: Bool] { (try? JSONDecoder().decode([String: Bool].self, from: answersData)) ?? [:] }
+}
+
+/// A logged strength-training session.
+@Model
+final class StrengthEntry {
+    @Attribute(.unique) var uuid: UUID
+    var start: Date
+    var source: String
+    var payload: Data
+
+    init(_ w: StrengthWorkout) {
+        self.uuid = w.id
+        self.start = w.start
+        self.source = w.source
+        self.payload = (try? JSONEncoder().encode(w)) ?? Data()
+    }
+
+    var workout: StrengthWorkout? { try? JSONDecoder().decode(StrengthWorkout.self, from: payload) }
+}
+
 enum StoreSchema {
     static let models: [any PersistentModel.Type] = [
         HeartRateEntry.self, VitalEntry.self, ActivityEntry.self,
         SleepEntry.self, WorkoutEntry.self, DayScoreEntry.self,
+        JournalEntry.self, StrengthEntry.self,
     ]
 }

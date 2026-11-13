@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum DetailRoute: Hashable {
-    case recovery(Date), strain(Date), sleep(Date)
+    case recovery(Date), strain(Date), sleep(Date), stress(Date), journal(Date)
 }
 
 struct TodayView: View {
@@ -24,7 +24,9 @@ struct TodayView: View {
                         hero(score)
                         if let first = insights.first { CoachCard(insight: first, score: score) }
                         if isToday { TonightCard(plan: store.coach.bedtimePlan(today: score, history: history)) }
+                        if isToday && store.journalDay(selectedDay) == nil { JournalPromptCard(day: selectedDay) }
                         VitalsGrid(score: score)
+                        StressMiniCard(day: selectedDay)
                         if insights.count > 1 { InsightList(insights: Array(insights.dropFirst())) }
                         if !score.workouts.isEmpty { WorkoutsCard(workouts: score.workouts) }
                     } else {
@@ -46,6 +48,8 @@ struct TodayView: View {
                 case .recovery(let d): RecoveryDetailView(day: d)
                 case .strain(let d): StrainDetailView(day: d)
                 case .sleep(let d): SleepDetailView(day: d)
+                case .stress(let d): StressView(day: d)
+                case .journal(let d): JournalView(day: d)
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -122,6 +126,49 @@ struct TodayView: View {
                                progress: (s.sleepPerformance ?? 0) / 100,
                                color: Theme.sleep,
                                caption: s.hasSleep ? Format.duration(s.asleep) : "No data")
+                }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+}
+
+// MARK: - Journal prompt & stress
+
+struct JournalPromptCard: View {
+    var day: Date
+
+    var body: some View {
+        NavigationLink(value: DetailRoute.journal(day)) {
+            HStack(spacing: 12) {
+                Image(systemName: "book.closed.fill").font(.title3).foregroundStyle(Theme.strain)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("How was yesterday?").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.textPrimary)
+                    Text("Log your habits — 30 seconds — to learn what drives your recovery.")
+                        .font(.caption).foregroundStyle(Theme.textSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Theme.textTertiary)
+            }
+            .padding(14)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.strain.opacity(0.4)))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct StressMiniCard: View {
+    var day: Date
+    @EnvironmentObject private var store: HealthStore
+
+    var body: some View {
+        let summary = StressMonitor.summary(store.stressTimeline(for: day))
+        if let summary {
+            NavigationLink(value: DetailRoute.stress(day)) {
+                Card {
+                    SectionLabel(text: "Stress monitor", trailing: "0–3")
+                    StressSummaryRow(summary: summary)
                 }
             }
             .buttonStyle(.plain)

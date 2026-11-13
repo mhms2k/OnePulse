@@ -210,3 +210,100 @@ final class ScoreEngineTests: XCTestCase {
         XCTAssertEqual(decoded, s)
     }
 }
+
+final class LifestyleFeatureTests: XCTestCase {
+    private func day(_ offset: Int) -> Date {
+        Calendar.current.date(byAdding: .day, value: -offset, to: Calendar.current.startOfDay(for: Date()))!
+    }
+
+    func testBehaviorInsightNeedsFiveOfEach() {
+        var scores: [DayScore] = []
+        var journal: [Date: [String: Bool]] = [:]
+        for i in 0..<12 {
+            var s = DayScore(day: day(i))
+            let drank = i % 2 == 0
+            s.recovery = drank ? 40 : 70
+            scores.append(s)
+            journal[day(i)] = ["alcohol": drank]
+        }
+        let insights = BehaviorAnalyzer.insights(journal: journal, scores: scores)
+        XCTAssertEqual(insights.count, 1)
+        XCTAssertEqual(insights.first?.behavior.id, "alcohol")
+        XCTAssertEqual(insights.first?.impact ?? 0, -30, accuracy: 0.001)
+
+        let fewer = journal.filter { $0.key >= day(5) }
+        XCTAssertTrue(BehaviorAnalyzer.insights(journal: fewer, scores: scores).isEmpty, "only 3 of each answer")
+    }
+
+    func testHealthspanRewardsGoodHabits() {
+        var profile = UserProfile()
+        profile.age = 40
+        func days(rhr: Double, sleepHours: Double, steps: Int, zone2: Double) -> [DayScore] {
+            (0..<20).map { i in
+                var s = DayScore(day: day(i))
+                s.restingHR = rhr
+                s.timeInBed = sleepHours * 3600 + 1800
+                s.asleep = sleepHours * 3600
+                s.consistency = 85
+                s.steps = steps
+                s.avgHR = 70
+                s.zoneMinutes = [zone2, zone2, 0, 3, 1]
+                return s
+            }
+        }
+        let fit = Healthspan.compute(scores: days(rhr: 50, sleepHours: 8, steps: 11000, zone2: 25), strength: [], profile: profile)
+        let unfit = Healthspan.compute(scores: days(rhr: 78, sleepHours: 5.5, steps: 3000, zone2: 2), strength: [], profile: profile)
+        XCTAssertNotNil(fit)
+        XCTAssertNotNil(unfit)
+        XCTAssertLessThan(fit!.bodyAge, 40)
+        XCTAssertGreaterThan(unfit!.bodyAge, 40)
+        XCTAssertLessThan(fit!.paceOfAging, 1)
+        XCTAssertGreaterThan(unfit!.paceOfAging, 1)
+        XCTAssertNil(Healthspan.compute(scores: Array(days(rhr: 50, sleepHours: 8, steps: 9000, zone2: 20).prefix(5)),
+                                        strength: [], profile: profile), "needs two weeks")
+    }
+
+    func testStressFromHeartRate() {
+        XCTAssertEqual(StressMonitor.fromHeartRate(60, restingHR: 60, asleep: false), 0)
+        let moderate = StressMonitor.fromHeartRate(80, restingHR: 60, asleep: false)
+        let high = StressMonitor.fromHeartRate(100, restingHR: 60, asleep: false)
+        XCTAssertGreaterThan(moderate, 0)
+        XCTAssertGreaterThan(high, moderate)
+        XCTAssertEqual(StressMonitor.fromHeartRate(200, restingHR: 60, asleep: false), 3)
+        XCTAssertEqual(StressMonitor.fromWatchIndex(100), 3)
+    }
+
+    func testCyclePhase() {
+        let starts = [day(56), day(28), day(0)]
+        let today = CycleTracker.status(periodStarts: starts)
+        XCTAssertEqual(today?.day, 1)
+        XCTAssertEqual(today?.length, 28)
+        XCTAssertEqual(today?.phase, .menstrual)
+        let later = CycleTracker.status(periodStarts: [day(20)])
+        XCTAssertEqual(later?.phase, .luteal)
+    }
+
+    func testStrengthRecords() {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let w = StrengthWorkout(name: "A", start: start, end: start.addingTimeInterval(3600),
+                                sets: [StrengthSet(exercise: "Squat", reps: 5, weightKg: 100),
+                                       StrengthSet(exercise: "Squat", reps: 1, weightKg: 120)])
+        let r = StrengthStats.records([w])
+        XCTAssertEqual(r.first?.bestWeight, 120)
+        XCTAssertEqual(r.first?.totalVolume, 620)
+        XCTAssertEqual(r.first?.bestOneRepMax ?? 0, 120, accuracy: 0.01)
+        XCTAssertEqual(w.duration, 3600)
+    }
+
+    @MainActor
+    func testDemoJournalProducesAlcoholInsight() {
+        let store = HealthStore(inMemory: true)
+        store.loadDemoData()
+        XCTAssertFalse(store.journal.isEmpty)
+        XCTAssertFalse(store.strengthWorkouts.isEmpty)
+        let alcohol = store.behaviorInsights.first { $0.behavior.id == "alcohol" }
+        XCTAssertNotNil(alcohol)
+        XCTAssertLessThan(alcohol?.impact ?? 0, 0, "demo nights with alcohol have lower recovery")
+        XCTAssertNotNil(store.healthspan)
+    }
+}
