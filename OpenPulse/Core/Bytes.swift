@@ -99,6 +99,10 @@ extension Array where Element == UInt8 {
     }
 }
 
+extension ArraySlice where Element == UInt8 {
+    var hex: String { Array(self).hex }
+}
+
 extension Data {
     var hex: String { [UInt8](self).hex }
 }
