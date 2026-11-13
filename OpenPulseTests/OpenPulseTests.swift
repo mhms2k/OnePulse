@@ -117,7 +117,7 @@ final class HeartRateMeasurementTests: XCTestCase {
 
     func testUInt16HeartRateWithContactAndEnergy() {
         // flags: 16-bit HR, contact supported + detected, energy present
-        let m = HeartRateMeasurement([0x01 | 0x02 | 0x04 | 0x08, 0x2C, 0x01, 0x10, 0x00])
+        let m = HeartRateMeasurement([UInt8(0x01 | 0x02 | 0x04 | 0x08), 0x2C, 0x01, 0x10, 0x00])
         XCTAssertEqual(m?.bpm, 300)
         XCTAssertEqual(m?.sensorContact, true)
         XCTAssertEqual(m?.energyExpended, 16)
