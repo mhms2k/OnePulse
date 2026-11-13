@@ -1,0 +1,95 @@
+name: iOS build
+
+on:
+  push:
+    branches: ['**']
+    paths-ignore: ['**.md']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build, package & test
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode
+        run: |
+          ls /Applications | grep -i xcode || true
+          xcodebuild -version
+
+      # 1) Device build without code signing -> unsigned .ipa for Sideloadly / AltStore
+      - name: Build unsigned IPA
+        run: |
+          set +e
+          xcodebuild build \
+            -project OpenPulse.xcodeproj -scheme OpenPulse -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build/device \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            > device.log 2>&1
+          status=$?
+          set -e
+          grep -E "error:|\*\* BUILD" device.log | head -150
+          if [ $status -ne 0 ]; then
+            { echo '### Device build failed'; echo '```'; grep -E "error:" device.log | head -60; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            exit $status
+          fi
+          mkdir -p Payload
+          cp -R build/device/Build/Products/Release-iphoneos/OpenPulse.app Payload/
+          zip -qry OpenPulse-unsigned.ipa Payload
+          echo "IPA size: $(du -h OpenPulse-unsigned.ipa | cut -f1)"
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenPulse-unsigned-ipa
+          path: OpenPulse-unsigned.ipa
+
+      # 2) Unit tests on the newest available iPhone simulator
+      - name: Pick simulator
+        id: sim
+        run: |
+          UDID=$(python3 - <<'PY'
+          import json, re, subprocess
+          d = json.loads(subprocess.check_output(['xcrun', 'simctl', 'list', 'devices', 'available', '-j']))['devices']
+          def ver(k): return [int(x) for x in re.findall(r'\d+', k.split('iOS-')[-1])]
+          for k in sorted([k for k in d if '.iOS-' in k], key=ver, reverse=True):
+              phones = [x for x in d[k] if x['name'].startswith('iPhone')]
+              if phones:
+                  print(phones[0]['udid']); break
+          PY
+          )
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "Simulator: $UDID"
+
+      - name: Unit tests
+        run: |
+          set +e
+          xcodebuild test \
+            -project OpenPulse.xcodeproj -scheme OpenPulse \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath build/test \
+            CODE_SIGNING_ALLOWED=NO \
+            > test.log 2>&1
+          status=$?
+          set -e
+          grep -E "error:|Test Case .* failed|XCTAssert|Executed [0-9]+ test|\*\* TEST" test.log | head -150
+          if [ $status -ne 0 ]; then
+            { echo '### Tests failed'; echo '```'; grep -E "error:|failed" test.log | head -60; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit $status
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: '*.log'
+          if-no-files-found: ignore
