@@ -5,7 +5,7 @@ Bluetooth to a CMF Watch 3 Pro (proprietary CMF protocol) and to any standard BL
 SwiftData on the phone, and computes Recovery / Strain / Sleep scores plus coaching feedback. See README.md.
 
 ## The owner has no Mac
-All compiling and testing happens on GitHub Actions (`.github/workflows/ios.yml`, runner `macos-15`):
+All compiling and testing happens on GitHub Actions (`.github/workflows/ios.yml`, runner `macos-15-intel`; arm64 `macos-15` jobs went unassigned for lack of capacity):
 1. Device build with signing disabled → artifact **OpenPulse-unsigned-ipa** (installed on the iPhone with Sideloadly).
 2. Unit tests on the newest iPhone simulator.
 
